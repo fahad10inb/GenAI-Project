@@ -26,8 +26,7 @@ The project encompasses three core functionalities:
 1. **Clone the Repository**: Clone this repository to your local machine.
    
    ```bash
-   git clone https://github.com/your_username/image-to-audio-story.git
-   cd image-to-audio-story
+   git clone 
    ```
 
 2. **Run the Application**: Start the Streamlit application to use the image-to-audio story converter.
