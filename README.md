@@ -26,7 +26,7 @@ The project encompasses three core functionalities:
 1. **Clone the Repository**: Clone this repository to your local machine.
    
    ```bash
-   git clone 
+   git clone https://github.com/fahad10inb/GenAI-Project.git
    ```
 
 2. **Run the Application**: Start the Streamlit application to use the image-to-audio story converter.
