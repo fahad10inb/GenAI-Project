@@ -1,3 +1,7 @@
+Certainly! Here's the revised README with improved grammar and alignment:
+
+---
+
 # Image-to-Audio Story Converter
 
 This project facilitates the conversion of images into narrative audio stories using image captioning, text generation, and text-to-speech technologies.
@@ -41,6 +45,39 @@ The project encompasses three core functionalities:
 
 5. **Convert to Audio**: Finally, listen to the generated story by clicking on the provided audio start option.
 
+## Integration with ESPnet for Text-to-Speech
+
+To integrate ESPnet for text-to-speech conversion, follow these steps:
+
+- **Install ESPnet**: Ensure ESPnet is installed in your environment. You can install it using pip:
+  
+  ```bash
+  pip install espnet
+  ```
+
+- **Initialize ESPnet TTS Model**: Load the ESPnet model for text-to-speech conversion.
+
+  ```python
+  from espnet2.bin.tts_inference import Text2Speech
+
+  # Load the ESPnet model
+  model = Text2Speech.from_pretrained("espnet/kan-bayashi_ljspeech_vits")
+  ```
+
+- **Generate Speech**: Use the initialized model to generate speech from text. Here’s a basic example:
+
+  ```python
+  # Generate speech from text
+  text_to_generate = "Text to convert into speech"
+  speech, *_ = model(text_to_generate)
+
+  # Save speech to a file (example)
+  with open("output.wav", "wb") as f:
+      f.write(speech.numpy())
+  ```
+
+- **Handle Audio Output**: Implement logic in your application to manage the audio output from ESPnet and provide options for users to download the generated audio file.
+
 ## Future Enhancements
 
 - Enhance image captioning accuracy using advanced computer vision techniques.
@@ -49,9 +86,7 @@ The project encompasses three core functionalities:
 
 ## Contributors
 
-- GitHub: Fahad10inb
-- Email: fahadrahiman10@gmail.com
+- GitHub: [Fahad10inb](https://github.com/fahad10inb)
+- Email: [fahadrahiman10@gmail.com](mailto:fahadrahiman10@gmail.com)
 
 ---
-
-
