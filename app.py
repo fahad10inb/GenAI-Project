@@ -1,62 +1,36 @@
-# =====================================
-# STREAMLIT HOSTING SETUP
-# =====================================
-
 import streamlit as st
 import os
 from dotenv import load_dotenv
 import requests
 import transformers
 from transformers import pipeline
+import pyttsx3  # Simple offline TTS
+import io
+import base64
 
-# Load environment variables (for local development)
 load_dotenv()
 
 def get_api_token():
-    """
-    Get API token from multiple sources for different hosting environments
-    Priority: Streamlit Secrets > Environment Variable > User Input
-    """
-    token = None
-    
-    # Method 1: Streamlit Secrets (for Streamlit Cloud hosting)
+    """Get API token securely"""
     try:
         token = st.secrets["HUGGINGFACEHUB_API_TOKEN"]
-        st.sidebar.success("🔒 Token loaded from Streamlit Secrets")
         return token
     except:
         pass
     
-    # Method 2: Environment Variable (for Heroku, Railway, etc.)
     token = os.getenv("HUGGINGFACEHUB_API_TOKEN")
     if token:
-        st.sidebar.success("🔒 Token loaded from Environment")
         return token
-    
-    # Method 3: User Input (fallback for development)
-    st.sidebar.warning("⚠️ No token found in secrets or environment")
-    st.sidebar.markdown("### 🔑 Enter API Token")
     
     token = st.sidebar.text_input(
         "HuggingFace API Token:",
         type="password",
         placeholder="hf_...",
-        help="Get from: https://huggingface.co/settings/tokens"
     )
-    
-    if token:
-        st.sidebar.success("✅ Token entered manually")
-        return token
-    else:
-        st.sidebar.error("❌ Please provide an API token")
-        st.stop()
-
-# =====================================
-# MAIN APPLICATION CODE
-# =====================================
+    return token
 
 def img2txt(image_path):
-    """Convert image to text description"""
+    """Convert image to text"""
     try:
         pipe = pipeline("image-to-text", model="Salesforce/blip-image-captioning-base")
         text = pipe(image_path)[0]['generated_text']
@@ -66,164 +40,139 @@ def img2txt(image_path):
         return None
 
 def generate_story(scenario):
-    """Generate story from image description"""
+    """Generate story from scenario"""
     try:
-        intro = "Write a meaningful story in about 300 words about "
+        intro = "Write a short meaningful story about "
         full_prompt = f"{intro} {scenario}"
         
         pipe = transformers.pipeline("text-generation", model="gpt2")
-        output = pipe(full_prompt, num_return_sequences=1, max_length=300, truncation=True)
-        generated_story = output[0]['generated_text']
-        story = generated_story[len(intro):].strip()
+        output = pipe(full_prompt, num_return_sequences=1, max_length=200, truncation=True)
+        story = output[0]['generated_text'][len(intro):].strip()
         
         return story
     except Exception as e:
         st.error(f"Story generation error: {str(e)}")
         return None
 
-def text_to_speech(message, token):
-    """Convert text to speech using HuggingFace API with multiple model fallbacks"""
-    
-    # List of TTS models to try (in order of preference)
-    tts_models = [
-        "microsoft/speecht5_tts",
-        "facebook/mms-tts-eng",
-        "suno/bark-small",
-        "espnet/kan-bayashi_ljspeech_vits"
-    ]
-    
-    for i, model in enumerate(tts_models):
-        API_URL = f"https://api-inference.huggingface.co/models/{model}"
-        headers = {"Authorization": f"Bearer {token}"}
-        payload = {"inputs": message}
-        
-        try:
-            st.info(f"🔄 Trying TTS model {i+1}/{len(tts_models)}: {model.split('/')[-1]}")
-            response = requests.post(API_URL, headers=headers, json=payload, timeout=30)
-            
-            if response.status_code == 200:
-                # Check if response is audio data
-                content_type = response.headers.get('content-type', '')
-                
-                if 'audio' in content_type or len(response.content) > 1000:
-                    # Save audio file
-                    audio_filename = 'generated_audio.wav'
-                    with open(audio_filename, 'wb') as file:
-                        file.write(response.content)
-                    
-                    st.success(f"✅ Audio generated using {model}")
-                    return True
-                
-                elif 'application/json' in content_type:
-                    error_data = response.json()
-                    if 'error' in error_data:
-                        st.warning(f"⚠️ Model {model}: {error_data['error']}")
-                        continue
-            
-            elif response.status_code == 401:
-                st.error("❌ Invalid API token. Please check your token.")
-                return False
-                
-            elif response.status_code == 404:
-                st.warning(f"⚠️ Model not found: {model}")
-                continue
-                
-            elif response.status_code == 503:
-                st.warning(f"⏳ Model loading: {model}")
-                continue
-                
-            else:
-                st.warning(f"⚠️ Error {response.status_code} with {model}")
-                continue
-                
-        except requests.exceptions.Timeout:
-            st.warning(f"⏳ Timeout with {model}")
-            continue
-        except Exception as e:
-            st.warning(f"⚠️ Error with {model}: {str(e)}")
-            continue
-    
-    # If all models fail, offer alternatives
-    st.error("❌ All TTS models failed. Trying alternative approach...")
-    return try_alternative_tts(message, token)
+# SIMPLE WORKING TTS OPTIONS
 
-def try_alternative_tts(message, token):
-    """Try alternative TTS approach using different API format"""
+def browser_tts(text):
+    """Use browser's built-in speech synthesis (JavaScript)"""
+    # Create HTML with JavaScript for TTS
+    html_code = f"""
+    <div>
+        <button onclick="speakText()" style="
+            background: #ff4b4b;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        ">🔊 Play Audio</button>
+        
+        <button onclick="stopSpeech()" style="
+            background: #666;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-left: 10px;
+        ">⏹️ Stop</button>
+    </div>
+    
+    <script>
+        function speakText() {{
+            const text = `{text}`;
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 0.8;
+            utterance.pitch = 1;
+            utterance.volume = 1;
+            speechSynthesis.speak(utterance);
+        }}
+        
+        function stopSpeech() {{
+            speechSynthesis.cancel();
+        }}
+    </script>
+    """
+    return html_code
+
+def google_translate_tts(text):
+    """Use Google Translate TTS (simple and reliable)"""
     try:
-        # Try Google Translate TTS-like model
-        API_URL = "https://api-inference.huggingface.co/models/facebook/fastspeech2-en-ljspeech"
-        headers = {"Authorization": f"Bearer {token}"}
+        # This is a simple approach using gTTS if available
+        from gtts import gTTS
+        import tempfile
         
-        # Some models expect different input format
-        payload = {
-            "inputs": message,
-            "parameters": {
-                "normalize": True,
-                "phonemize": True,
-                "length_scale": 1.0
-            }
-        }
+        # Create TTS object
+        tts = gTTS(text=text, lang='en', slow=False)
         
-        response = requests.post(API_URL, headers=headers, json=payload, timeout=30)
-        
-        if response.status_code == 200 and len(response.content) > 1000:
-            with open('generated_audio.wav', 'wb') as file:
-                file.write(response.content)
-            st.success("✅ Audio generated using alternative method")
-            return True
-        
+        # Save to temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as tmp_file:
+            tts.save(tmp_file.name)
+            return tmp_file.name
+            
+    except ImportError:
+        st.warning("gTTS not installed. Install with: pip install gtts")
+        return None
     except Exception as e:
-        st.warning(f"Alternative TTS also failed: {str(e)}")
-    
-    # Final fallback - show text and suggest manual TTS
-    st.error("❌ Could not generate audio. Here's your story text:")
-    st.text_area("Copy this text to any TTS service:", message, height=150)
-    
-    st.markdown("""
-    **Alternative TTS Services:**
-    - [Google Text-to-Speech](https://cloud.google.com/text-to-speech)
-    - [Amazon Polly](https://aws.amazon.com/polly/)
-    - [Natural Readers](https://www.naturalreaders.com/)
-    - [TTSMaker](https://ttsmaker.com/)
-    """)
-    
-    return False
+        st.error(f"gTTS error: {str(e)}")
+        return None
+
+def edge_tts_simple(text):
+    """Use Microsoft Edge TTS (if available)"""
+    try:
+        import edge_tts
+        import asyncio
+        import tempfile
+        
+        async def generate_speech():
+            communicate = edge_tts.Communicate(text, "en-US-AriaNeural")
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as tmp_file:
+                async for chunk in communicate.stream():
+                    if chunk["type"] == "audio":
+                        tmp_file.write(chunk["data"])
+                return tmp_file.name
+        
+        # Run async function
+        audio_file = asyncio.run(generate_speech())
+        return audio_file
+        
+    except ImportError:
+        st.warning("edge-tts not installed. Install with: pip install edge-tts")
+        return None
+    except Exception as e:
+        st.error(f"Edge TTS error: {str(e)}")
+        return None
 
 def main():
-    # Page configuration
-    st.set_page_config(
-        page_title="Image to Audio Story",
-        page_icon="🎵",
-        layout="wide"
-    )
-    
-    # Title and description
+    st.set_page_config(page_title="Image to Audio Story", page_icon="🎵")
     st.title("🎵 Image to Audio Story Generator")
-    st.markdown("Upload an image and get an AI-generated audio story!")
     
-    # Get API token
-    api_token = get_api_token()
+    # Get token
+    token = get_api_token()
+    if not token:
+        st.warning("Please provide your HuggingFace API token")
+        st.stop()
     
-    # File uploader
-    uploaded_file = st.file_uploader(
-        "Choose an image file",
-        type=['jpg', 'jpeg', 'png'],
-        help="Upload an image to generate a story"
-    )
+    # File upload
+    uploaded_file = st.file_uploader("Upload an image", type=['jpg', 'jpeg', 'png'])
     
-    if uploaded_file is not None:
-        # Display uploaded image
-        col1, col2 = st.columns([1, 1])
+    if uploaded_file:
+        # Save and display image
+        with open(uploaded_file.name, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+        
+        col1, col2 = st.columns(2)
         
         with col1:
-            st.image(uploaded_file, caption="Uploaded Image", use_column_width=True)
+            st.image(uploaded_file, caption="Your Image", use_column_width=True)
         
         with col2:
-            # Save uploaded file temporarily
-            with open(uploaded_file.name, "wb") as f:
-                f.write(uploaded_file.getbuffer())
-            
-            # Process the image
+            # Process image
             with st.spinner("🔍 Analyzing image..."):
                 scenario = img2txt(uploaded_file.name)
             
@@ -232,61 +181,86 @@ def main():
                 st.write("**Description:**", scenario)
                 
                 # Generate story
-                with st.spinner("📝 Creating story..."):
+                with st.spinner("📝 Writing story..."):
                     story = generate_story(scenario)
                 
                 if story:
-                    st.success("✅ Story generated!")
+                    st.success("✅ Story created!")
                     
-                    # Display story
-                    with st.expander("📖 View Story", expanded=True):
-                        st.write(story)
+                    # Show story
+                    st.subheader("📖 Your Story")
+                    st.write(story)
                     
-                    # Generate audio
-                    with st.spinner("🎤 Converting to audio..."):
-                        audio_success = text_to_speech(story, api_token)
+                    # TTS OPTIONS
+                    st.subheader("🔊 Audio Options")
                     
-                    if audio_success:
-                        st.success("✅ Audio generated!")
-                        
-                        # Play audio
-                        audio_file_path = 'generated_audio.wav'
-                        if os.path.exists(audio_file_path):
-                            with open(audio_file_path, 'rb') as audio_file:
-                                audio_bytes = audio_file.read()
-                                st.audio(audio_bytes, format='audio/wav')
-                            
-                            # Download button
-                            st.download_button(
-                                label="📥 Download Audio",
-                                data=audio_bytes,
-                                file_name="story_audio.wav",
-                                mime="audio/wav"
-                            )
-            
-            # Cleanup temporary file
-            try:
-                os.remove(uploaded_file.name)
-            except:
-                pass
-    
-    # Instructions in sidebar
-    with st.sidebar:
-        st.markdown("### 📋 Instructions")
-        st.markdown("""
-        1. Upload an image (JPG, PNG)
-        2. Wait for AI to analyze it
-        3. Get your generated story
-        4. Listen to the audio version
-        5. Download if you like it!
-        """)
+                    # Option 1: Browser TTS (Always works)
+                    st.markdown("**Option 1: Browser Speech (Instant)**")
+                    browser_html = browser_tts(story)
+                    st.components.v1.html(browser_html, height=100)
+                    
+                    # Option 2: Download options
+                    st.markdown("**Option 2: Generate Audio File**")
+                    
+                    col_a, col_b = st.columns(2)
+                    
+                    with col_a:
+                        if st.button("🎵 Generate with Google TTS"):
+                            audio_file = google_translate_tts(story)
+                            if audio_file:
+                                with open(audio_file, 'rb') as f:
+                                    audio_bytes = f.read()
+                                st.audio(audio_bytes, format='audio/mp3')
+                                st.download_button(
+                                    "📥 Download Audio",
+                                    audio_bytes,
+                                    "story.mp3",
+                                    "audio/mp3"
+                                )
+                                os.unlink(audio_file)  # Clean up
+                    
+                    with col_b:
+                        if st.button("🎤 Generate with Edge TTS"):
+                            audio_file = edge_tts_simple(story)
+                            if audio_file:
+                                with open(audio_file, 'rb') as f:
+                                    audio_bytes = f.read()
+                                st.audio(audio_bytes, format='audio/mp3')
+                                st.download_button(
+                                    "📥 Download Audio",
+                                    audio_bytes,
+                                    "story_edge.mp3",
+                                    "audio/mp3"
+                                )
+                                os.unlink(audio_file)  # Clean up
+                    
+                    # Option 3: Manual alternatives
+                    st.markdown("**Option 3: Copy Text for External TTS**")
+                    with st.expander("📋 Copy Story Text"):
+                        st.text_area("Story Text:", story, height=100)
+                        st.markdown("""
+                        **Quick TTS Services:**
+                        - [NaturalReaders](https://www.naturalreaders.com/online/)
+                        - [TTSMaker](https://ttsmaker.com/)
+                        - [Text to Speech Online](https://www.texttospeechonline.com/)
+                        """)
         
-        st.markdown("### 🔧 Hosting Platforms")
+        # Cleanup
+        try:
+            os.remove(uploaded_file.name)
+        except:
+            pass
+    
+    # Installation instructions
+    with st.sidebar:
+        st.markdown("### 📦 For Better Audio Quality")
+        st.code("pip install gtts edge-tts", language="bash")
         st.markdown("""
-        - **Streamlit Cloud**: Uses secrets.toml
-        - **Heroku**: Uses environment variables
-        - **Railway**: Uses environment variables
-        - **Render**: Uses environment variables
+        **Browser TTS**: Works immediately, no installation needed
+        
+        **Google TTS**: Better quality, requires `gtts` package
+        
+        **Edge TTS**: Best quality, requires `edge-tts` package
         """)
 
 if __name__ == '__main__':
