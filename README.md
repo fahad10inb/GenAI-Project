@@ -4,7 +4,7 @@
 
 🔗 **Live Demo**: [genai-project-6b5bre75bfmupqpa8npwz5.streamlit.app](https://genai-project-6b5bre75bfmupqpa8npwz5.streamlit.app)
 
-This project converts images into engaging audio stories using image captioning, text generation, and text-to-speech models.
+This project converts images into engaging audio stories using image captioning, text generation, and browser-based speech synthesis.
 
 ---
 
@@ -14,7 +14,7 @@ The app performs the following steps:
 
 1. 🖼️ **Image-to-Text**: Captions images using `Salesforce/blip-image-captioning-base`.
 2. 📜 **Text-to-Story**: Expands captions into stories using `GPT-2`.
-3. 🔊 **Text-to-Speech**: Converts stories into audio using `ESPnet Kan-Bayashi LJSpeech VITS`.
+3. 🔊 **Text-to-Speech**: Converts stories into audio using browser's built-in SpeechSynthesis API.
 
 ---
 
@@ -23,9 +23,9 @@ The app performs the following steps:
 * **Python**: Core backend processing
 * **Streamlit**: Frontend UI framework
 * **Hugging Face Transformers**: Access to GPT-2 and image models
-* **Hugging Face Inference API**: For text-to-speech model usage
+* **Hugging Face Inference API**: For accessing models like BLIP and GPT-2
 * **BLIP (Salesforce)**: Image captioning model
-* **ESPnet**: TTS model backend (`kan-bayashi_ljspeech_vits`)
+* **Browser SpeechSynthesis**: In-browser TTS using JavaScript (no external TTS API needed)
 
 ---
 
@@ -53,29 +53,17 @@ streamlit run app.py
 ### 4. Use the UI:
 
 * Upload an image.
-* View the caption.
-* Generate a story.
-* Click to play the generated audio story.
+* View the AI-generated caption.
+* Generate a story from the caption.
+* Listen to the story using browser-based audio playback.
 
 ---
 
-## 🔊 ESPnet TTS Integration (Local Option)
+## 🔊 Text-to-Speech (Browser-based)
 
-If using ESPnet locally instead of Hugging Face API:
+No need for external models or installations — audio is generated using the browser’s built-in SpeechSynthesis API.
 
-```bash
-pip install espnet
-```
-
-```python
-from espnet2.bin.tts_inference import Text2Speech
-
-model = Text2Speech.from_pretrained("espnet/kan-bayashi_ljspeech_vits")
-speech, *_ = model("Once upon a time...")
-
-with open("output.wav", "wb") as f:
-    f.write(speech.numpy())
-```
+> 💡 Works out of the box on Chrome, Edge, and Firefox with natural voices.
 
 ---
 
@@ -83,7 +71,8 @@ with open("output.wav", "wb") as f:
 
 * Improve caption-to-story creativity with fine-tuned LLMs.
 * Add multilingual support for narration.
-* Allow custom voice selection for audio playback.
+* Allow custom voice selection and speech rate control.
+* Optional export of audio to downloadable `.wav` using ESPnet locally.
 
 ---
 
