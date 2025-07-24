@@ -1,123 +1,88 @@
-# Method 1: Using .env file (RECOMMENDED)
-from dotenv import load_dotenv
-import os
+# =====================================
+# STREAMLIT HOSTING SETUP
+# =====================================
+
 import streamlit as st
-
-# Load environment variables
-load_dotenv()
-
-def get_hf_token():
-    """Safely get HuggingFace token"""
-    token = os.getenv("HUGGINGFACEHUB_API_TOKEN")
-    if not token:
-        st.error("❌ HuggingFace API token not found!")
-        st.info("Please add HUGGINGFACEHUB_API_TOKEN to your .env file")
-        st.stop()
-    return token
-
-# Usage in your app
-HUGGINGFACEHUB_API_TOKEN = get_hf_token()
-
-# =====================================
-# Method 2: Using Streamlit Secrets (CLOUD DEPLOYMENT)
-# =====================================
-
-def get_hf_token_from_secrets():
-    """Get token from Streamlit secrets (for cloud deployment)"""
-    try:
-        return st.secrets["HUGGINGFACEHUB_API_TOKEN"]
-    except KeyError:
-        st.error("❌ Token not found in Streamlit secrets!")
-        st.info("Add your token to .streamlit/secrets.toml")
-        st.stop()
-
-# =====================================
-# Method 3: User Input (DEVELOPMENT ONLY)
-# =====================================
-
-def get_hf_token_from_input():
-    """Allow user to input token (development only)"""
-    token = st.sidebar.text_input(
-        "Enter HuggingFace API Token", 
-        type="password",
-        help="Get your token from https://huggingface.co/settings/tokens"
-    )
-    
-    if not token:
-        st.warning("⚠️ Please enter your HuggingFace API token in the sidebar")
-        st.stop()
-    
-    return token
-
-# =====================================
-# COMPLETE UPDATED APP WITH SECURE TOKEN
-# =====================================
-
-from dotenv import find_dotenv, load_dotenv
+import os
+from dotenv import load_dotenv
 import requests
 import transformers
 from transformers import pipeline
 
-load_dotenv(find_dotenv())
+# Load environment variables (for local development)
+load_dotenv()
 
-def get_secure_token():
-    """Get token securely with multiple fallback methods"""
-    # Method 1: Environment variable
+def get_api_token():
+    """
+    Get API token from multiple sources for different hosting environments
+    Priority: Streamlit Secrets > Environment Variable > User Input
+    """
+    token = None
+    
+    # Method 1: Streamlit Secrets (for Streamlit Cloud hosting)
+    try:
+        token = st.secrets["HUGGINGFACEHUB_API_TOKEN"]
+        st.sidebar.success("🔒 Token loaded from Streamlit Secrets")
+        return token
+    except:
+        pass
+    
+    # Method 2: Environment Variable (for Heroku, Railway, etc.)
     token = os.getenv("HUGGINGFACEHUB_API_TOKEN")
+    if token:
+        st.sidebar.success("🔒 Token loaded from Environment")
+        return token
     
-    # Method 2: Streamlit secrets (for cloud)
-    if not token:
-        try:
-            token = st.secrets["HUGGINGFACEHUB_API_TOKEN"]
-        except:
-            pass
+    # Method 3: User Input (fallback for development)
+    st.sidebar.warning("⚠️ No token found in secrets or environment")
+    st.sidebar.markdown("### 🔑 Enter API Token")
     
-    # Method 3: User input (development only)
-    if not token:
-        st.sidebar.markdown("### 🔑 API Configuration")
-        token = st.sidebar.text_input(
-            "HuggingFace API Token", 
-            type="password",
-            help="Get from: https://huggingface.co/settings/tokens"
-        )
+    token = st.sidebar.text_input(
+        "HuggingFace API Token:",
+        type="password",
+        placeholder="hf_...",
+        help="Get from: https://huggingface.co/settings/tokens"
+    )
     
-    if not token:
-        st.error("❌ No API token provided!")
-        st.markdown("""
-        **To fix this:**
-        1. Get a token from: https://huggingface.co/settings/tokens
-        2. Add it to your `.env` file: `HUGGINGFACEHUB_API_TOKEN=your_token_here`
-        3. Or enter it in the sidebar
-        """)
+    if token:
+        st.sidebar.success("✅ Token entered manually")
+        return token
+    else:
+        st.sidebar.error("❌ Please provide an API token")
         st.stop()
-    
-    return token
 
-def img2txt(url):
+# =====================================
+# MAIN APPLICATION CODE
+# =====================================
+
+def img2txt(image_path):
+    """Convert image to text description"""
     try:
         pipe = pipeline("image-to-text", model="Salesforce/blip-image-captioning-base")
-        text = pipe(url)[0]['generated_text']
+        text = pipe(image_path)[0]['generated_text']
         return text
     except Exception as e:
-        st.error(f"Error in image captioning: {str(e)}")
+        st.error(f"Image processing error: {str(e)}")
         return None
 
-def generate_story(check):
+def generate_story(scenario):
+    """Generate story from image description"""
     try:
-        intro = "write a meaningful story in about 300 words about "
-        full_prompt = f"{intro} {check}"
+        intro = "Write a meaningful story in about 300 words about "
+        full_prompt = f"{intro} {scenario}"
         
         pipe = transformers.pipeline("text-generation", model="gpt2")
         output = pipe(full_prompt, num_return_sequences=1, max_length=300, truncation=True)
         generated_story = output[0]['generated_text']
-        story = generated_story[len(intro):].strip()  
+        story = generated_story[len(intro):].strip()
         
         return story
     except Exception as e:
-        st.error(f"Error in story generation: {str(e)}")
+        st.error(f"Story generation error: {str(e)}")
         return None
 
-def text_speech(message, token):
+def text_to_speech(message, token):
+    """Convert text to speech using HuggingFace API"""
     API_URL = "https://api-inference.huggingface.co/models/espnet/kan-bayashi_ljspeech_vits"
     headers = {"Authorization": f"Bearer {token}"}
     payload = {"inputs": message}
@@ -129,90 +94,126 @@ def text_speech(message, token):
             st.error("❌ Invalid API token. Please check your token.")
             return False
         elif response.status_code == 503:
-            st.warning("⏳ Model is loading. Please try again in a few moments.")
+            st.warning("⏳ Model is loading. Try again in a moment.")
             return False
         elif response.status_code != 200:
-            st.error(f"API request failed: {response.status_code}")
+            st.error(f"API Error: {response.status_code}")
             return False
         
-        # Check if response is JSON (error) or audio data
+        # Check content type
         content_type = response.headers.get('content-type', '')
         if 'application/json' in content_type:
             error_data = response.json()
-            st.error(f"Model error: {error_data.get('error', 'Unknown error')}")
+            st.warning(f"Model not ready: {error_data.get('error', 'Try again later')}")
             return False
         
         # Save audio file
-        with open('audio.flac', 'wb') as file:
+        with open('generated_audio.flac', 'wb') as file:
             file.write(response.content)
         
         return True
         
     except Exception as e:
-        st.error(f"Error in text-to-speech: {str(e)}")
+        st.error(f"TTS Error: {str(e)}")
         return False
 
 def main():
-    st.set_page_config(page_title="IMAGE TO AUDIO", page_icon="🎵")
-    st.header("🎵 Turn Image into an Audio Story")
-    
-    # Get token securely
-    token = get_secure_token()
-    
-    # Show token status (masked)
-    if token:
-        masked_token = f"hf_{'*' * 30}{token[-6:]}"
-        st.sidebar.success(f"✅ Token loaded: {masked_token}")
-    
-    uploaded_file = st.file_uploader(
-        "Upload an Image...", 
-        type=["jpg", "jpeg", "png"],
-        help="Upload an image to generate a story and convert it to audio"
+    # Page configuration
+    st.set_page_config(
+        page_title="Image to Audio Story",
+        page_icon="🎵",
+        layout="wide"
     )
-
+    
+    # Title and description
+    st.title("🎵 Image to Audio Story Generator")
+    st.markdown("Upload an image and get an AI-generated audio story!")
+    
+    # Get API token
+    api_token = get_api_token()
+    
+    # File uploader
+    uploaded_file = st.file_uploader(
+        "Choose an image file",
+        type=['jpg', 'jpeg', 'png'],
+        help="Upload an image to generate a story"
+    )
+    
     if uploaded_file is not None:
-        bytes_data = uploaded_file.getvalue()
+        # Display uploaded image
+        col1, col2 = st.columns([1, 1])
         
-        with open(uploaded_file.name, "wb") as file:
-            file.write(bytes_data)
-
-        st.image(uploaded_file, caption="Uploaded Image", use_column_width=True)
-
-        # Processing pipeline
-        with st.spinner("🔍 Analyzing image..."):
-            scenario = img2txt(uploaded_file.name)
+        with col1:
+            st.image(uploaded_file, caption="Uploaded Image", use_column_width=True)
         
-        if scenario:
-            with st.spinner("📝 Generating story..."):
-                story = generate_story(scenario)
+        with col2:
+            # Save uploaded file temporarily
+            with open(uploaded_file.name, "wb") as f:
+                f.write(uploaded_file.getbuffer())
             
-            if story:
-                with st.spinner("🎤 Converting to speech..."):
-                    success = text_speech(story, token)
-
-                # Display results
-                col1, col2 = st.columns(2)
+            # Process the image
+            with st.spinner("🔍 Analyzing image..."):
+                scenario = img2txt(uploaded_file.name)
+            
+            if scenario:
+                st.success("✅ Image analyzed!")
+                st.write("**Description:**", scenario)
                 
-                with col1:
-                    st.subheader("🎯 Image Description")
-                    st.write(scenario)
+                # Generate story
+                with st.spinner("📝 Creating story..."):
+                    story = generate_story(scenario)
                 
-                with col2:
-                    st.subheader("📖 Generated Story")
-                    st.write(story)
-
-                if success:
-                    st.subheader("🎵 Audio Story")
-                    st.audio("audio.flac")
-                    st.success("✅ Audio generated successfully!")
-                else:
-                    st.error("❌ Failed to generate audio. Please try again.")
-
-        # Cleanup
-        try:
-            os.remove(uploaded_file.name)
-        except:
-            pass
+                if story:
+                    st.success("✅ Story generated!")
+                    
+                    # Display story
+                    with st.expander("📖 View Story", expanded=True):
+                        st.write(story)
+                    
+                    # Generate audio
+                    with st.spinner("🎤 Converting to audio..."):
+                        audio_success = text_to_speech(story, api_token)
+                    
+                    if audio_success:
+                        st.success("✅ Audio generated!")
+                        
+                        # Play audio
+                        with open('generated_audio.flac', 'rb') as audio_file:
+                            audio_bytes = audio_file.read()
+                            st.audio(audio_bytes, format='audio/flac')
+                        
+                        # Download button
+                        st.download_button(
+                            label="📥 Download Audio",
+                            data=audio_bytes,
+                            file_name="story_audio.flac",
+                            mime="audio/flac"
+                        )
+            
+            # Cleanup temporary file
+            try:
+                os.remove(uploaded_file.name)
+            except:
+                pass
+    
+    # Instructions in sidebar
+    with st.sidebar:
+        st.markdown("### 📋 Instructions")
+        st.markdown("""
+        1. Upload an image (JPG, PNG)
+        2. Wait for AI to analyze it
+        3. Get your generated story
+        4. Listen to the audio version
+        5. Download if you like it!
+        """)
+        
+        st.markdown("### 🔧 Hosting Platforms")
+        st.markdown("""
+        - **Streamlit Cloud**: Uses secrets.toml
+        - **Heroku**: Uses environment variables
+        - **Railway**: Uses environment variables
+        - **Render**: Uses environment variables
+        """)
 
 if __name__ == '__main__':
     main()
