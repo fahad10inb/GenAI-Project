@@ -1,6 +1,8 @@
 streamlit
-transformers
-requests
 python-dotenv
-torch --index-url https://download.pytorch.org/whl/cpu
+transformers
+torch
+requests
 Pillow
+gtts
+edge-tts
