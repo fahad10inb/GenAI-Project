@@ -1,6 +1,6 @@
-streamlit==1.28.1
-transformers==4.21.0
-requests==2.31.0
-python-dotenv==1.0.0
-torch==1.13.1
-Pillow==9.5.0
+streamlit
+transformers
+requests
+python-dotenv
+torch --index-url https://download.pytorch.org/whl/cpu
+Pillow
