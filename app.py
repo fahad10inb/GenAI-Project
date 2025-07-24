@@ -1,5 +1,4 @@
 from dotenv import find_dotenv, load_dotenv
-from langchain import OpenAI, PromptTemplate, LLMChain
 import requests
 import os
 import transformers
