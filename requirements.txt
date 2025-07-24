@@ -3,3 +3,4 @@ transformers
 requests
 python-dotenv
 huggingface-hub
+langchain
