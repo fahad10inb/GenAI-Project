@@ -4,3 +4,4 @@ requests
 python-dotenv
 huggingface-hub
 langchain
+langchain_community
