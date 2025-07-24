@@ -82,40 +82,112 @@ def generate_story(scenario):
         return None
 
 def text_to_speech(message, token):
-    """Convert text to speech using HuggingFace API"""
-    API_URL = "https://api-inference.huggingface.co/models/espnet/kan-bayashi_ljspeech_vits"
-    headers = {"Authorization": f"Bearer {token}"}
-    payload = {"inputs": message}
+    """Convert text to speech using HuggingFace API with multiple model fallbacks"""
     
+    # List of TTS models to try (in order of preference)
+    tts_models = [
+        "microsoft/speecht5_tts",
+        "facebook/mms-tts-eng",
+        "suno/bark-small",
+        "espnet/kan-bayashi_ljspeech_vits"
+    ]
+    
+    for i, model in enumerate(tts_models):
+        API_URL = f"https://api-inference.huggingface.co/models/{model}"
+        headers = {"Authorization": f"Bearer {token}"}
+        payload = {"inputs": message}
+        
+        try:
+            st.info(f"🔄 Trying TTS model {i+1}/{len(tts_models)}: {model.split('/')[-1]}")
+            response = requests.post(API_URL, headers=headers, json=payload, timeout=30)
+            
+            if response.status_code == 200:
+                # Check if response is audio data
+                content_type = response.headers.get('content-type', '')
+                
+                if 'audio' in content_type or len(response.content) > 1000:
+                    # Save audio file
+                    audio_filename = 'generated_audio.wav'
+                    with open(audio_filename, 'wb') as file:
+                        file.write(response.content)
+                    
+                    st.success(f"✅ Audio generated using {model}")
+                    return True
+                
+                elif 'application/json' in content_type:
+                    error_data = response.json()
+                    if 'error' in error_data:
+                        st.warning(f"⚠️ Model {model}: {error_data['error']}")
+                        continue
+            
+            elif response.status_code == 401:
+                st.error("❌ Invalid API token. Please check your token.")
+                return False
+                
+            elif response.status_code == 404:
+                st.warning(f"⚠️ Model not found: {model}")
+                continue
+                
+            elif response.status_code == 503:
+                st.warning(f"⏳ Model loading: {model}")
+                continue
+                
+            else:
+                st.warning(f"⚠️ Error {response.status_code} with {model}")
+                continue
+                
+        except requests.exceptions.Timeout:
+            st.warning(f"⏳ Timeout with {model}")
+            continue
+        except Exception as e:
+            st.warning(f"⚠️ Error with {model}: {str(e)}")
+            continue
+    
+    # If all models fail, offer alternatives
+    st.error("❌ All TTS models failed. Trying alternative approach...")
+    return try_alternative_tts(message, token)
+
+def try_alternative_tts(message, token):
+    """Try alternative TTS approach using different API format"""
     try:
-        response = requests.post(API_URL, headers=headers, json=payload)
+        # Try Google Translate TTS-like model
+        API_URL = "https://api-inference.huggingface.co/models/facebook/fastspeech2-en-ljspeech"
+        headers = {"Authorization": f"Bearer {token}"}
         
-        if response.status_code == 401:
-            st.error("❌ Invalid API token. Please check your token.")
-            return False
-        elif response.status_code == 503:
-            st.warning("⏳ Model is loading. Try again in a moment.")
-            return False
-        elif response.status_code != 200:
-            st.error(f"API Error: {response.status_code}")
-            return False
+        # Some models expect different input format
+        payload = {
+            "inputs": message,
+            "parameters": {
+                "normalize": True,
+                "phonemize": True,
+                "length_scale": 1.0
+            }
+        }
         
-        # Check content type
-        content_type = response.headers.get('content-type', '')
-        if 'application/json' in content_type:
-            error_data = response.json()
-            st.warning(f"Model not ready: {error_data.get('error', 'Try again later')}")
-            return False
+        response = requests.post(API_URL, headers=headers, json=payload, timeout=30)
         
-        # Save audio file
-        with open('generated_audio.flac', 'wb') as file:
-            file.write(response.content)
-        
-        return True
+        if response.status_code == 200 and len(response.content) > 1000:
+            with open('generated_audio.wav', 'wb') as file:
+                file.write(response.content)
+            st.success("✅ Audio generated using alternative method")
+            return True
         
     except Exception as e:
-        st.error(f"TTS Error: {str(e)}")
-        return False
+        st.warning(f"Alternative TTS also failed: {str(e)}")
+    
+    # Final fallback - show text and suggest manual TTS
+    st.error("❌ Could not generate audio. Here's your story text:")
+    st.text_area("Copy this text to any TTS service:", message, height=150)
+    
+    st.markdown("""
+    **Alternative TTS Services:**
+    - [Google Text-to-Speech](https://cloud.google.com/text-to-speech)
+    - [Amazon Polly](https://aws.amazon.com/polly/)
+    - [Natural Readers](https://www.naturalreaders.com/)
+    - [TTSMaker](https://ttsmaker.com/)
+    """)
+    
+    return False
 
 def main():
     # Page configuration
@@ -178,17 +250,19 @@ def main():
                         st.success("✅ Audio generated!")
                         
                         # Play audio
-                        with open('generated_audio.flac', 'rb') as audio_file:
-                            audio_bytes = audio_file.read()
-                            st.audio(audio_bytes, format='audio/flac')
-                        
-                        # Download button
-                        st.download_button(
-                            label="📥 Download Audio",
-                            data=audio_bytes,
-                            file_name="story_audio.flac",
-                            mime="audio/flac"
-                        )
+                        audio_file_path = 'generated_audio.wav'
+                        if os.path.exists(audio_file_path):
+                            with open(audio_file_path, 'rb') as audio_file:
+                                audio_bytes = audio_file.read()
+                                st.audio(audio_bytes, format='audio/wav')
+                            
+                            # Download button
+                            st.download_button(
+                                label="📥 Download Audio",
+                                data=audio_bytes,
+                                file_name="story_audio.wav",
+                                mime="audio/wav"
+                            )
             
             # Cleanup temporary file
             try:
