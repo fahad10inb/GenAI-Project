@@ -1,0 +1,5 @@
+streamlit
+transformers
+requests
+python-dotenv
+huggingface-hub
