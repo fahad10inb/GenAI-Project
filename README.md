@@ -1,92 +1,95 @@
-Certainly! Here's the revised README with improved grammar and alignment:
+# 🎿 Image-to-Audio Story Converter
+
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://genai-project-6b5bre75bfmupqpa8npwz5.streamlit.app)
+
+🔗 **Live Demo**: [genai-project-6b5bre75bfmupqpa8npwz5.streamlit.app](https://genai-project-6b5bre75bfmupqpa8npwz5.streamlit.app)
+
+This project converts images into engaging audio stories using image captioning, text generation, and text-to-speech models.
 
 ---
 
-# Image-to-Audio Story Converter
+## 📌 Overview
 
-This project facilitates the conversion of images into narrative audio stories using image captioning, text generation, and text-to-speech technologies.
+The app performs the following steps:
 
-## Overview
+1. 🖼️ **Image-to-Text**: Captions images using `Salesforce/blip-image-captioning-base`.
+2. 📜 **Text-to-Story**: Expands captions into stories using `GPT-2`.
+3. 🔊 **Text-to-Speech**: Converts stories into audio using `ESPnet Kan-Bayashi LJSpeech VITS`.
 
-The project encompasses three core functionalities:
+---
 
-1. **Image-to-Text Conversion**: Utilizes the Salesforce/blip-image-captioning-base model to generate descriptive text from uploaded images.
+## 🧠 Technologies Used
 
-2. **Text-to-Story Generation**: Employs the GPT-2 text generation model from Hugging Face Transformers to expand short descriptions into complete narrative stories.
+* **Python**: Core backend processing
+* **Streamlit**: Frontend UI framework
+* **Hugging Face Transformers**: Access to GPT-2 and image models
+* **Hugging Face Inference API**: For text-to-speech model usage
+* **BLIP (Salesforce)**: Image captioning model
+* **ESPnet**: TTS model backend (`kan-bayashi_ljspeech_vits`)
 
-3. **Text-to-Speech Conversion**: Integrates with the ESPnet-based Kan-Bayashi LJSpeech VITS model via the Hugging Face API to convert generated stories into audio files.
+---
 
-## Technologies Used
+## 🚀 Setup & Usage
 
-- **Python**: Programming language for backend processing.
-- **Streamlit**: Web application framework for the user interface.
-- **Hugging Face Transformers**: Library for accessing pre-trained language models like GPT-2.
-- **Hugging Face API**: Provides access to the ESPnet-based text-to-speech model.
-- **Salesforce/blip-image-captioning-base**: Model for generating image captions.
-- **ESPnet Kan-Bayashi LJSpeech VITS**: Model for converting text to speech.
+### 1. Clone the repository:
 
-## Setup and Usage
+```bash
+git clone https://github.com/fahad10inb/GenAI-Project.git
+cd GenAI-Project
+```
 
-1. **Clone the Repository**: Clone this repository to your local machine.
-   
-   ```bash
-   git clone https://github.com/fahad10inb/GenAI-Project.git
-   ```
+### 2. Install dependencies:
 
-2. **Run the Application**: Start the Streamlit application to use the image-to-audio story converter.
+```bash
+pip install -r requirements.txt
+```
 
-   ```bash
-   streamlit run app.py
-   ```
+### 3. Run the app:
 
-3. **Upload an Image**: Use the provided interface to upload an image. The application will generate a short description (caption) based on the image.
+```bash
+streamlit run app.py
+```
 
-4. **Generate Story**: Click on the generated caption to expand it into a full narrative story using the GPT-2 text generation model.
+### 4. Use the UI:
 
-5. **Convert to Audio**: Finally, listen to the generated story by clicking on the provided audio start option.
+* Upload an image.
+* View the caption.
+* Generate a story.
+* Click to play the generated audio story.
 
-## Integration with ESPnet for Text-to-Speech
+---
 
-To integrate ESPnet for text-to-speech conversion, follow these steps:
+## 🔊 ESPnet TTS Integration (Local Option)
 
-- **Install ESPnet**: Ensure ESPnet is installed in your environment. You can install it using pip:
-  
-  ```bash
-  pip install espnet
-  ```
+If using ESPnet locally instead of Hugging Face API:
 
-- **Initialize ESPnet TTS Model**: Load the ESPnet model for text-to-speech conversion.
+```bash
+pip install espnet
+```
 
-  ```python
-  from espnet2.bin.tts_inference import Text2Speech
+```python
+from espnet2.bin.tts_inference import Text2Speech
 
-  # Load the ESPnet model
-  model = Text2Speech.from_pretrained("espnet/kan-bayashi_ljspeech_vits")
-  ```
+model = Text2Speech.from_pretrained("espnet/kan-bayashi_ljspeech_vits")
+speech, *_ = model("Once upon a time...")
 
-- **Generate Speech**: Use the initialized model to generate speech from text. Here’s a basic example:
+with open("output.wav", "wb") as f:
+    f.write(speech.numpy())
+```
 
-  ```python
-  # Generate speech from text
-  text_to_generate = "Text to convert into speech"
-  speech, *_ = model(text_to_generate)
+---
 
-  # Save speech to a file (example)
-  with open("output.wav", "wb") as f:
-      f.write(speech.numpy())
-  ```
+## 🌱 Future Enhancements
 
-- **Handle Audio Output**: Implement logic in your application to manage the audio output from ESPnet and provide options for users to download the generated audio file.
+* Improve caption-to-story creativity with fine-tuned LLMs.
+* Add multilingual support for narration.
+* Allow custom voice selection for audio playback.
 
-## Future Enhancements
+---
 
-- Enhance image captioning accuracy using advanced computer vision techniques.
-- Integrate additional language models for generating diverse and engaging narrative stories.
-- Implement support for multiple languages and dialects in text-to-speech conversion.
+## 👥 Contributors
 
-## Contributors
-
-- GitHub: [Fahad10inb](https://github.com/fahad10inb)
-- Email: [fahadrahiman10@gmail.com](mailto:fahadrahiman10@gmail.com)
+* **GitHub**: [Fahad10inb](https://github.com/fahad10inb)
+* **Email**: [fahadrahiman10@gmail.com](mailto:fahadrahiman10@gmail.com)
 
 ---
