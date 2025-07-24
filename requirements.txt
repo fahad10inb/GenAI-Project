@@ -4,4 +4,3 @@ requests
 python-dotenv
 torch --index-url https://download.pytorch.org/whl/cpu
 Pillow
-langchain
