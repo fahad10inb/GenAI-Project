@@ -4,4 +4,11 @@ requests
 python-dotenv
 huggingface-hub
 langchain
-langchain_community
+langchain-community
+torch
+torchvision
+torchaudio
+Pillow
+accelerate
+sentencepiece
+protobuf
