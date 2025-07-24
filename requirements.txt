@@ -2,7 +2,4 @@ streamlit
 python-dotenv
 transformers
 torch
-requests
 Pillow
-gtts
-edge-tts
